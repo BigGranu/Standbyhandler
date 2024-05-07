@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFrameworks>net48;net6.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>power.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="power.ico" />
+  </ItemGroup>
+
+</Project>
