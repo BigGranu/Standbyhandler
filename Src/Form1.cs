@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -6,6 +7,10 @@ namespace Standbyhandler
 {
     public partial class Form1 : Form
     {
+        private System.Windows.Forms.Timer timer;
+        private MenuItem display;
+        private Point oldPosition;
+
         private readonly ToolStripMenuItem _menuItemStart;
         private readonly ToolStripMenuItem _menuItemExit;
         private readonly ToolStripMenuItem _display;
@@ -21,7 +26,8 @@ namespace Standbyhandler
             _menuItemExit = new ToolStripMenuItem();
             _display = new ToolStripMenuItem();
 
-            _menuItemStart.Text = @"Start";
+            _sleep = true;
+            _menuItemStart.Text = @"Stop";
             _menuItemStart.ToolTipText = @"Pc allways On";
             _menuItemStart.Click += menuItem1_Click;
 
@@ -40,6 +46,11 @@ namespace Standbyhandler
             notifyIcon1.ContextMenuStrip = contextMenu;
             notifyIcon1.Text = @"Standbyhandler";
             notifyIcon1.Visible = true;
+
+            // Initialize Timer
+            timer = new System.Windows.Forms.Timer();
+            timer.Tick += TimerOnTick;
+            timer.Interval = 10000;
         }
 
         private void menuItem1_Click(object sender, EventArgs e)
@@ -68,6 +79,20 @@ namespace Standbyhandler
         private void DisplayOnClick(object sender, EventArgs e)
         {
             _display.Checked = !_display.Checked;
+        }
+
+        private void TimerOnTick(object sender, EventArgs e)
+        {
+            var fpi = Win32Input.GetCursorPosition();
+
+            if (fpi == oldPosition)
+            {
+                var ret = Win32Input.Move(fpi.X + 1, fpi.Y + 1);
+                System.Threading.Thread.Sleep(500);
+                ret = Win32Input.Move(fpi.X, fpi.Y);
+            }
+
+            oldPosition = fpi;
         }
     }
 
@@ -115,6 +140,80 @@ namespace Standbyhandler
             {
                 MessageBox.Show(@"Error Allow Sleep:" + result, @"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+    }
+
+    public class Win32Input
+    {
+        [DllImport("user32.dll", EntryPoint = "SendInput", SetLastError = true)]
+        static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [DllImport("user32.dll", EntryPoint = "GetMessageExtraInfo", SetLastError = true)]
+        static extern IntPtr GetMessageExtraInfo();
+
+        [DllImport("user32.dll")]
+        static extern bool GetCursorPos(out PointInter lpPoint);
+
+        [DllImport("user32.dll", EntryPoint = "SetCursorPos")]
+        static extern int SetCursorPos(int x, int y);
+
+        private enum InputType
+        {
+            INPUT_MOUSE = 0
+        }
+
+        [Flags]
+        private enum MOUSEEVENTF
+        {
+            MOVE = 0x0001,
+            ABSOLUTE = 0x8000,
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int mouseData;
+            public MOUSEEVENTF dwFlags;
+            public int time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public InputType type;
+            public MOUSEINPUT mi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PointInter
+        {
+            public int X;
+            public int Y;
+            public static explicit operator Point(PointInter point) => new Point(point.X, point.Y);
+        }
+
+        public static Point GetCursorPosition()
+        {
+            GetCursorPos(out var lpPoint);
+            return (Point)lpPoint;
+        }
+
+        public static int Move(int x, int y)
+        {
+            INPUT inputMove = new INPUT
+            {
+                type = InputType.INPUT_MOUSE
+            };
+            inputMove.mi.mouseData = 0;
+            inputMove.mi.dwFlags = (MOUSEEVENTF.MOVE | MOUSEEVENTF.ABSOLUTE);
+            inputMove.mi.time = 0;
+            inputMove.mi.dwExtraInfo = GetMessageExtraInfo();
+
+            INPUT[] input = { inputMove };
+            SendInput(1, input, Marshal.SizeOf(inputMove));
+
+            return SetCursorPos(x, y);
         }
     }
 }
